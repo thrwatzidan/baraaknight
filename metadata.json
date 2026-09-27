@@ -1,6 +1,0 @@
-{
-  "name": "تحدي فرسان البرعة: نشيد نبت الحق عليها مزهرا",
-  "description": "لعبة تفاعلية تعليمية شيقة للأطفال والطلاب مستوحاة من نشيد فن البرعة العماني مع مؤثرات صوتية وتحديات لغوية وشعرية.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
