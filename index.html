@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لعبة فارس البرعة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Changa:wght@400;700;800&family=Tajawal:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-bg: #1a202c;
+            --accent: #eab308; /* Gold/Yellow for Glory */
+            --danger: #ef4444; /* Red for errors */
+        }
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #000;
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling during gameplay */
+            touch-action: none; /* Prevent swipe-to-refresh on mobile */
+            color: white;
+            user-select: none;
+        }
+
+        /* Heroic Mountain Background */
+        .game-bg {
+            background: linear-gradient(to bottom, #1e3a8a 0%, #0f172a 100%);
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -2;
+        }
+
+        .mountain {
+            position: fixed;
+            bottom: 0;
+            width: 100vw;
+            height: 30vh;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%231e293b' fill-opacity='1' d='M0,256L48,229.3C96,203,192,149,288,154.7C384,160,480,224,576,218.7C672,213,768,139,864,128C960,117,1056,171,1152,197.3C1248,224,1344,224,1392,224L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+            background-size: cover;
+            background-position: center bottom;
+            background-repeat: no-repeat;
+            z-index: -1;
+            opacity: 0.8;
+        }
+
+        /* Title Font */
+        h1, h2, .title-font {
+            font-family: 'Changa', sans-serif;
+        }
+
+        /* Falling Target Styles */
+        .target {
+            position: absolute;
+            background: linear-gradient(145deg, #475569, #334155);
+            border: 3px solid #64748b;
+            border-bottom-width: 6px;
+            border-radius: 12px;
+            padding: 15px 20px;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            cursor: crosshair;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-width: 120px;
+            max-width: 180px;
+            transform-origin: center;
+            transition: transform 0.1s;
+        }
+
+        .target:active {
+            transform: scale(0.9);
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(5px, 5px) rotate(1deg); }
+            50% { transform: translate(-5px, -5px) rotate(-1deg); }
+            75% { transform: translate(-5px, 5px) rotate(1deg); }
+        }
+        .screen-shake {
+            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes slice {
+            0% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); transform: scale(1); opacity: 1; }
+            50% { clip-path: polygon(0 0, 100% 50%, 100% 100%, 0 50%); transform: scale(1.2) rotate(5deg); opacity: 0.8; background: #22c55e;}
+            100% { clip-path: polygon(0 0, 100% 50%, 100% 100%, 0 50%); transform: scale(0) rotate(15deg); opacity: 0; }
+        }
+        .target-sliced {
+            animation: slice 0.4s ease-out forwards;
+            pointer-events: none;
+            border-color: #22c55e !important;
+        }
+
+        /* UI Panels */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-action {
+            background: linear-gradient(to bottom, #eab308, #ca8a04);
+            border-bottom: 4px solid #a16207;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            transition: all 0.1s;
+        }
+        .btn-action:active {
+            transform: translateY(4px);
+            border-bottom-width: 0px;
+        }
+
+        /* Question HUD */
+        #hud {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            z-index: 10;
+        }
+
+        .question-box {
+            background: rgba(30, 58, 138, 0.85);
+            border: 2px solid #60a5fa;
+            border-radius: 12px;
+            padding: 15px 30px;
+            text-align: center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            max-width: 60%;
+            margin: 0 auto;
+        }
+
+        /* Particles */
+        .particle {
+            position: absolute;
+            background-color: #eab308;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-bg"></div>
+    <div class="mountain"></div>
+
+    <!-- HUD (Heads Up Display) -->
+    <div id="hud" class="hidden">
+        <div class="glass-panel px-4 py-2 flex flex-col items-center">
+            <span class="text-gray-300 text-xs font-bold">دروع الصمود</span>
+            <div id="lives-container" class="flex gap-1 text-red-500 text-xl">
+                ❤️ ❤️ ❤️
+            </div>
+        </div>
+
+        <div class="question-box">
+            <span class="block text-blue-300 text-sm mb-1 font-bold">المهمة الحالية:</span>
+            <h2 id="current-question" class="text-xl md:text-3xl font-black text-white leading-tight"></h2>
+        </div>
+
+        <div class="glass-panel px-4 py-2 flex flex-col items-center">
+            <span class="text-gray-300 text-xs font-bold">نقاط المجد</span>
+            <span id="score" class="text-yellow-400 font-black text-2xl title-font">0</span>
+        </div>
+    </div>
+
+    <!-- Game Area (Targets fall here) -->
+    <div id="game-area" class="absolute inset-0 z-0 overflow-hidden hidden pointer-events-auto">
+        <!-- Targets injected by JS -->
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="absolute inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm">
+        <div class="glass-panel p-8 max-w-lg w-full text-center mx-4">
+            <div class="text-6xl mb-4">🗡️🛡️</div>
+            <h1 class="text-4xl md:text-5xl font-black text-yellow-400 mb-2 title-font">فارس البَرعَة</h1>
+            <h2 class="text-2xl font-bold text-white mb-6">حامي الذُّرى</h2>
+            
+            <div class="bg-slate-800 rounded-lg p-4 mb-6 text-right border border-slate-600">
+                <p class="text-blue-200 font-bold mb-2 text-center text-lg border-b border-slate-600 pb-2">نَشيد (نَبَتَ الحَقُّ عَلَيها مُزْهِرَا)</p>
+                <ul class="text-gray-300 space-y-2 text-sm md:text-base leading-relaxed">
+                    <li>⚔️ <strong>المهمة:</strong> اقرأ السؤال بأعلى الشاشة.</li>
+                    <li>⚔️ <strong>التحدي:</strong> حطّم الصخرة التي تحمل الإجابة الصحيحة قبل أن تسقط.</li>
+                    <li>⚔️ <strong>احذر:</strong> إذا لمست الصخرة الصحيحة الأرض، أو حطمت صخرة خاطئة، ستفقد درعاً!</li>
+                </ul>
+            </div>
+
+            <button onclick="initGame()" class="btn-action w-full py-4 text-2xl font-black text-white rounded-xl uppercase tracking-wider">
+                ابدأ المعركة 🔥
+            </button>
+        </div>
+    </div>
+
+    <!-- End Screen -->
+    <div id="end-screen" class="absolute inset-0 flex items-center justify-center z-50 bg-red-900/80 backdrop-blur-md hidden">
+        <div class="glass-panel p-8 max-w-lg w-full text-center mx-4 border-red-500">
+            <h1 class="text-5xl font-black text-white mb-4 title-font">انتهت المعركة</h1>
+            <p class="text-xl text-gray-300 mb-6">أيها الفارس، لقد قاتلت بشجاعة!</p>
+            
+            <div class="bg-black/40 rounded-xl p-6 mb-8">
+                <span class="block text-gray-400 mb-2">مجموع نقاط المجد</span>
+                <span id="final-score" class="text-6xl font-black text-yellow-400 title-font">0</span>
+            </div>
+
+            <button onclick="resetGame()" class="btn-action w-full py-4 text-2xl font-black text-white rounded-xl">
+                حاول مرة أخرى 🔄
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Game Data (Extracted from Image) ---
+        const gameData = [
+            // Meanings (معاني الكلمات)
+            { type: 'معنى', q: "ما معنى كلمة (الثَّرى)؟", a: "التُّراب", opts: ["التُّراب", "السَّماء", "الجَبَل", "البَحْر"] },
+            { type: 'معنى', q: "ما معنى (جِدَّ بِالرَّكْب)؟", a: "أَسْرِعْ بِه", opts: ["أَسْرِعْ بِه", "أَوْقِفْه", "نَمْ مَعَه", "اُتْرُكْه"] },
+            { type: 'معنى', q: "ما معنى كلمة (عَافَ)؟", a: "كَرِهَ", opts: ["كَرِهَ", "أَحَبَّ", "بَحَثَ", "أَكَلَ"] },
+            { type: 'معنى', q: "ما معنى (الكَرى)؟", a: "النُّعاس", opts: ["النُّعاس", "الجُوع", "الخَوْف", "الغَضَب"] },
+            { type: 'معنى', q: "ما معنى (حَداها)؟", a: "سَاقَهَا وَقَادَهَا", opts: ["سَاقَهَا وَقَادَهَا", "ضَرَبَهَا", "تَرَكَهَا", "رَسَمَهَا"] },
+            { type: 'معنى', q: "ما معنى (هُيام)؟", a: "شِدَّة العِشْق", opts: ["شِدَّة العِشْق", "شِدَّة الخَوْف", "شِدَّة الحُزْن", "شِدَّة الفَرَح"] },
+            { type: 'معنى', q: "ما معنى (السُّرى)؟", a: "السَّيْر لَيلاً", opts: ["السَّيْر لَيلاً", "الجَرْي نَهاراً", "النَّوْم عَمِيقاً", "البُكَاء"] },
+            { type: 'معنى', q: "ما معنى (الذُّرى)؟", a: "أَعْلَى كُلِّ شَيْء", opts: ["أَعْلَى كُلِّ شَيْء", "أَسْفَل الشَّيْء", "وَسَط الشَّيْء", "لا شَيْء"] },
+            
+            // Verses (إكمال الأبيات)
+            { type: 'نشيد', q: "كُلُّنا جُنْدٌ على هذا ....", a: "الثَّرى", opts: ["الثَّرى", "المَكَان", "الوَطَن", "الزَّمَان"] },
+            { type: 'نشيد', q: "جِدَّ بِالرَّكْبِ الأَمينِ ....", a: "مُجَدَّدًا", opts: ["مُجَدَّدًا", "مُسْرِعًا", "مُتْعَبًا", "مُتَأَخِّرًا"] },
+            { type: 'نشيد', q: "فَعُمانٌ مُذْ حَدَاها ....", a: "فارِسٌ", opts: ["فارِسٌ", "حَارِسٌ", "شَاعِرٌ", "عَالِمٌ"] },
+            { type: 'نشيد', q: "قِبْلَةٌ للحَالِمينَ وَ ....", a: "مِنْبَرَا", opts: ["مِنْبَرَا", "مَلْجَأً", "مَسْجِدًا", "مَكْتَبًا"] },
+            { type: 'نشيد', q: "وَامْتَطَيْنا صَهْوَةَ ....", a: "المَجْدِ", opts: ["المَجْدِ", "الخَيْلِ", "الرِّيحِ", "البَحْرِ"] },
+            { type: 'نشيد', q: "غَرَزَ العَزْمَ على هامِ ....", a: "الذُّرى", opts: ["الذُّرى", "الجِبَالِ", "السُّحُبِ", "الرِّمَالِ"] }
+        ];
+
+        // --- 2. Game State ---
+        let score = 0;
+        let lives = 3;
+        let isPlaying = false;
+        let currentLevelSpeed = 2; // Pixel per frame
+        let currentQuestion = null;
+        let activeTargets = [];
+        let animationFrameId;
+        let spawnIntervalId;
+        
+        const gameArea = document.getElementById('game-area');
+
+        // --- 3. Audio Setup (Tone.js) ---
+        let bgmSynth, hitSynth, errorSynth;
+
+        async function initAudio() {
+            await Tone.start();
+            
+            // Percussive synth for the "Bara'a" drum beat
+            bgmSynth = new Tone.MembraneSynth({
+                pitchDecay: 0.05,
+                octaves: 2,
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
+            }).toDestination();
+            bgmSynth.volume.value = -10;
+
+            // Sharp synth for sword slice (correct answer)
+            hitSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "square" },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
+            }).toDestination();
+            hitSynth.volume.value = -5;
+
+            // Noise synth for impact/wrong answer
+            errorSynth = new Tone.NoiseSynth({
+                noise: { type: "brown" },
+                envelope: { attack: 0.01, decay: 0.3, sustain: 0 }
+            }).toDestination();
+            errorSynth.volume.value = 0;
+        }
+
+        // Drum Loop representing a simplified Bara'a rhythm
+        let drumLoopId = 0;
+        function playDrumBeat() {
+            if(!isPlaying) return;
+            const now = Tone.now();
+            // Step 1
+            if(drumLoopId % 4 === 0) bgmSynth.triggerAttackRelease("C2", "8n", now);
+            // Step 3
+            if(drumLoopId % 4 === 2) bgmSynth.triggerAttackRelease("C3", "8n", now);
+            
+            drumLoopId++;
+            setTimeout(playDrumBeat, 400); // roughly 150 BPM
+        }
+
+        function playHitSound() {
+            hitSynth.triggerAttackRelease(["C5", "E5", "G5"], "16n");
+        }
+
+        function playErrorSound() {
+            errorSynth.triggerAttackRelease("8n");
+        }
+
+        // --- 4. Core Game Engine ---
+
+        function shuffle(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        async function initGame() {
+            await initAudio();
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            document.getElementById('game-area').classList.remove('hidden');
+            
+            resetGameVariables();
+            isPlaying = true;
+            playDrumBeat();
+            
+            nextQuestion();
+            gameLoop();
+        }
+
+        function resetGameVariables() {
+            score = 0;
+            lives = 3;
+            currentLevelSpeed = 1.5; // Start slightly slow for mobile
+            updateHUD();
+            gameArea.innerHTML = '';
+            activeTargets = [];
+            drumLoopId = 0;
+        }
+
+        function updateHUD() {
+            document.getElementById('score').innerText = score;
+            let livesText = "";
+            for(let i=0; i<3; i++) {
+                livesText += (i < lives) ? "🛡️ " : "💔 ";
+            }
+            document.getElementById('lives-container').innerText = livesText;
+        }
+
+        function nextQuestion() {
+            if (!isPlaying) return;
+            
+            // Pick random question
+            currentQuestion = gameData[Math.floor(Math.random() * gameData.length)];
+            document.getElementById('current-question').innerText = currentQuestion.q;
+            
+            // Speed up slightly as game progresses
+            currentLevelSpeed = Math.min(4, currentLevelSpeed + 0.1); 
+            
+            spawnTargets(currentQuestion);
+        }
+
+        function spawnTargets(questionObj) {
+            gameArea.innerHTML = '';
+            activeTargets = [];
+            
+            const options = shuffle([...questionObj.opts]);
+            const gameWidth = gameArea.clientWidth;
+            
+            // Divide screen into 4 lanes to prevent overlapping
+            const laneWidth = gameWidth / 4;
+
+            options.forEach((opt, index) => {
+                const el = document.createElement('div');
+                el.className = 'target';
+                el.innerText = opt;
+                
+                // Random position within its lane
+                const randomXOffset = Math.random() * (laneWidth - 140); // 140 is roughly max width
+                const posX = (index * laneWidth) + randomXOffset;
+                
+                // Stagger spawn heights (Y axis) so they don't fall exactly together
+                const posY = -100 - (Math.random() * 300);
+
+                el.style.left = `${posX}px`;
+                el.style.top = `${posY}px`;
+
+                // Add interaction
+                // Use pointerdown for both mouse and touch for instant reaction
+                el.addEventListener('pointerdown', (e) => handleTargetClick(e, el, opt));
+
+                gameArea.appendChild(el);
+                
+                activeTargets.push({
+                    element: el,
+                    text: opt,
+                    x: posX,
+                    y: posY,
+                    isCorrect: (opt === questionObj.a),
+                    active: true
+                });
+            });
+        }
+
+        function gameLoop() {
+            if (!isPlaying) return;
+
+            const maxY = gameArea.clientHeight;
+            let correctTargetMissed = false;
+
+            activeTargets.forEach(target => {
+                if (!target.active) return;
+
+                // Move down
+                target.y += currentLevelSpeed;
+                target.element.style.top = `${target.y}px`;
+
+                // Check if hit bottom
+                if (target.y > maxY) {
+                    target.active = false;
+                    target.element.style.display = 'none';
+                    
+                    if (target.isCorrect) {
+                        correctTargetMissed = true;
+                    }
+                }
+            });
+
+            if (correctTargetMissed) {
+                // Punishment for letting correct answer fall
+                triggerError("لقد سقطت الإجابة الصحيحة!");
+            }
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function handleTargetClick(e, element, textClicked) {
+            e.preventDefault(); // Prevent double firing on touch
+            
+            // Find target data
+            const targetData = activeTargets.find(t => t.text === textClicked && t.active);
+            if(!targetData) return;
+
+            targetData.active = false;
+
+            if (targetData.isCorrect) {
+                // Correct Hit
+                playHitSound();
+                createParticles(e.clientX, e.clientY, '#22c55e'); // Green particles
+                
+                element.classList.add('target-sliced');
+                score += 10;
+                updateHUD();
+
+                // Clear other targets and go to next question after short delay
+                setTimeout(() => {
+                    activeTargets.forEach(t => { t.active = false; t.element.style.display = 'none'; });
+                    if(isPlaying) nextQuestion();
+                }, 500);
+
+            } else {
+                // Wrong Hit
+                element.style.backgroundColor = '#7f1d1d'; // Dark red
+                element.style.borderColor = '#ef4444';
+                triggerError("إجابة خاطئة!");
+                createParticles(e.clientX, e.clientY, '#ef4444');
+                setTimeout(() => { element.style.display = 'none'; }, 200);
+            }
+        }
+
+        function triggerError(msg) {
+            playErrorSound();
+            
+            // Screen shake
+            document.body.classList.add('screen-shake');
+            setTimeout(() => document.body.classList.remove('screen-shake'), 300);
+            
+            lives--;
+            updateHUD();
+
+            if (lives <= 0) {
+                endGame();
+            } else {
+                // If wrong, reset question immediately to avoid waiting for others to fall
+                activeTargets.forEach(t => { t.active = false; t.element.style.display = 'none'; });
+                setTimeout(() => {
+                    if(isPlaying) nextQuestion();
+                }, 600);
+            }
+        }
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 15; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.backgroundColor = color;
+                p.style.left = `${x}px`;
+                p.style.top = `${y}px`;
+                document.body.appendChild(p);
+
+                // Random velocity
+                const vx = (Math.random() - 0.5) * 15;
+                const vy = (Math.random() - 0.5) * 15;
+                let opacity = 1;
+
+                function animateParticle() {
+                    const currentX = parseFloat(p.style.left);
+                    const currentY = parseFloat(p.style.top);
+                    p.style.left = `${currentX + vx}px`;
+                    p.style.top = `${currentY + vy + 2}px`; // +2 for gravity
+                    
+                    opacity -= 0.05;
+                    p.style.opacity = opacity;
+
+                    if (opacity > 0) {
+                        requestAnimationFrame(animateParticle);
+                    } else {
+                        p.remove();
+                    }
+                }
+                requestAnimationFrame(animateParticle);
+            }
+        }
+
+        function endGame() {
+            isPlaying = false;
+            cancelAnimationFrame(animationFrameId);
+            
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('game-area').classList.add('hidden');
+            
+            const endScreen = document.getElementById('end-screen');
+            endScreen.classList.remove('hidden');
+            document.getElementById('final-score').innerText = score;
+        }
+
+        function resetGame() {
+            document.getElementById('end-screen').classList.add('hidden');
+            initGame();
+        }
+
+        // Prevent context menu on right click to keep it feeling like a game
+        document.addEventListener('contextmenu', event => event.preventDefault());
+    </script>
+</body>
+</html>
